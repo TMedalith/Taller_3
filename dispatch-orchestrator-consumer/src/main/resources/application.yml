@@ -1,0 +1,42 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: dispatch-orchestrator-consumer
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27018/shipmentsdb}
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+logging:
+  level:
+    root: INFO
+    reactor.kafka: WARN
+    com.logistics.dispatch_orchestrator_consumer: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+app:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    group-id: dispatch-orchestrator-consumer
+    schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+  topics:
+    main: logistics.shipments.v1
+    dlt: logistics.shipments.v1.DLT
+  redis:
+    snapshot:
+      key-prefix: "ship:event:"
