@@ -97,7 +97,7 @@ curl -s -X POST http://localhost:8087/api/shipments \
 ### Capturas de Kafka
 **Mensaje en topic principal logistics.shipments.v1:**
 
-![Kafka Topic Message](evidencias/kafka.png.png)
+![Kafka Topic Message](evidencias/kafka.png)
 
 **Mensaje en DLT logistics.shipments.v1.DLT:**
 
@@ -114,7 +114,7 @@ curl -s -X POST http://localhost:8087/api/shipments \
 ### Respuestas de los endpoints
 
 
-![Create Shipment](evidencias/mongo.png)
+![Create Shipment](evidencias/endpoint_1.png)
 
-![Shipment After First Attemp](evidencias/mongo.png)
+![Shipment After First Attemp](evidencias/endpoint_2.png)
 
