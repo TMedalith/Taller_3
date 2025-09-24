@@ -1,0 +1,429 @@
+{
+	"info": {
+		"_postman_id": "express-delivery-tests",
+		"name": "Express Delivery Orchestration Tests",
+		"description": "Test collection for shipping-ops-producer and dispatch-orchestrator-consumer",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Checks",
+			"item": [
+				{
+					"name": "Producer Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8087/actuator/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8087",
+							"path": ["actuator", "health"]
+						}
+					}
+				},
+				{
+					"name": "Consumer Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8088/api/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8088",
+							"path": ["api", "health"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Shipment Flow Tests",
+			"item": [
+				{
+					"name": "1. First Attempt - Create Shipment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 202', function () {",
+									"    pm.response.to.have.status(202);",
+									"});",
+									"",
+									"pm.test('Response has eventId', function () {",
+									"    const responseText = pm.response.text();",
+									"    pm.expect(responseText).to.not.be.empty;",
+									"    pm.environment.set('eventId', responseText);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"shipmentId\": \"SHP-9001\",\n  \"orderId\": \"ORD-12345\",\n  \"customerId\": \"CUST-777\",\n  \"address\": \"Calle Falsa 123\",\n  \"city\": \"Lima\",\n  \"postalCode\": \"15000\",\n  \"serviceLevel\": \"EXPRESS\",\n  \"requestedAt\": \"2025-11-10T10:30:00Z\",\n  \"attemptNumber\": 1,\n  \"correlationId\": \"corr-XYZ-123\",\n  \"status\": \"NEW\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8087/api/shipments",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8087",
+							"path": ["api", "shipments"]
+						}
+					}
+				},
+				{
+					"name": "2. Query Shipment After First Attempt",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Shipment has QUEUED status', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('QUEUED');",
+									"    pm.expect(jsonData.shipmentId).to.eql('SHP-9001');",
+									"    pm.expect(jsonData.receivedAt).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8088/api/shipments/SHP-9001",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8088",
+							"path": ["api", "shipments", "SHP-9001"]
+						}
+					}
+				},
+				{
+					"name": "3. Second Attempt - Retry with Cache",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 202', function () {",
+									"    pm.response.to.have.status(202);",
+									"});",
+									"",
+									"pm.test('Response has eventId', function () {",
+									"    const responseText = pm.response.text();",
+									"    pm.expect(responseText).to.not.be.empty;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"shipmentId\": \"SHP-9001\",\n  \"orderId\": \"ORD-99999\",\n  \"customerId\": \"CUST-888\",\n  \"address\": \"Nueva Dirección 456\",\n  \"city\": \"Arequipa\",\n  \"postalCode\": \"04000\",\n  \"serviceLevel\": \"STANDARD\",\n  \"requestedAt\": \"2025-11-10T10:35:00Z\",\n  \"attemptNumber\": 2,\n  \"correlationId\": \"corr-XYZ-123\",\n  \"status\": \"RETRY\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8087/api/shipments",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8087",
+							"path": ["api", "shipments"]
+						}
+					}
+				},
+				{
+					"name": "4. Query Shipment After Second Attempt",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Shipment has QUEUED_CACHE status', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('QUEUED_CACHE');",
+									"    pm.expect(jsonData.shipmentId).to.eql('SHP-9001');",
+									"    pm.expect(jsonData.processedAt).to.exist;",
+									"    // Should have original values from cache, not new ones",
+									"    pm.expect(jsonData.orderId).to.eql('ORD-12345');",
+									"    pm.expect(jsonData.city).to.eql('Lima');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8088/api/shipments/SHP-9001",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8088",
+							"path": ["api", "shipments", "SHP-9001"]
+						}
+					}
+				},
+				{
+					"name": "5. Duplicate First Attempt",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 202', function () {",
+									"    pm.response.to.have.status(202);",
+									"});",
+									"",
+									"// This should be processed as duplicate and not change the data"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"shipmentId\": \"SHP-9001\",\n  \"orderId\": \"ORD-12345\",\n  \"customerId\": \"CUST-777\",\n  \"address\": \"Calle Falsa 123\",\n  \"city\": \"Lima\",\n  \"postalCode\": \"15000\",\n  \"serviceLevel\": \"EXPRESS\",\n  \"requestedAt\": \"2025-11-10T10:30:00Z\",\n  \"attemptNumber\": 1,\n  \"correlationId\": \"corr-XYZ-123\",\n  \"status\": \"NEW\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8087/api/shipments",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8087",
+							"path": ["api", "shipments"]
+						}
+					}
+				},
+				{
+					"name": "6. Verify No Changes After Duplicate",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Shipment still has QUEUED_CACHE status', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('QUEUED_CACHE');",
+									"    pm.expect(jsonData.shipmentId).to.eql('SHP-9001');",
+									"    pm.expect(jsonData.processedAt).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8088/api/shipments/SHP-9001",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8088",
+							"path": ["api", "shipments", "SHP-9001"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Error Handling Tests",
+			"item": [
+				{
+					"name": "Invalid Request - Missing shipmentId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"orderId\": \"ORD-ERROR\",\n  \"customerId\": \"CUST-999\",\n  \"address\": \"Error Street 999\",\n  \"city\": \"ErrorCity\",\n  \"postalCode\": \"99999\",\n  \"serviceLevel\": \"EXPRESS\",\n  \"requestedAt\": \"2025-11-10T10:30:00Z\",\n  \"attemptNumber\": 1,\n  \"correlationId\": \"corr-ERROR-123\",\n  \"status\": \"NEW\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8087/api/shipments",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8087",
+							"path": ["api", "shipments"]
+						}
+					}
+				},
+				{
+					"name": "Query Non-Existent Shipment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8088/api/shipments/NON-EXISTENT",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8088",
+							"path": ["api", "shipments", "NON-EXISTENT"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Additional Test Scenarios",
+			"item": [
+				{
+					"name": "Different Shipment - First Attempt",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 202', function () {",
+									"    pm.response.to.have.status(202);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"shipmentId\": \"SHP-9002\",\n  \"orderId\": \"ORD-67890\",\n  \"customerId\": \"CUST-888\",\n  \"address\": \"Avenida Principal 456\",\n  \"city\": \"Cusco\",\n  \"postalCode\": \"08000\",\n  \"serviceLevel\": \"STANDARD\",\n  \"requestedAt\": \"2025-11-10T11:00:00Z\",\n  \"attemptNumber\": 1,\n  \"correlationId\": \"corr-ABC-456\",\n  \"status\": \"NEW\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8087/api/shipments",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8087",
+							"path": ["api", "shipments"]
+						}
+					}
+				},
+				{
+					"name": "Query Different Shipment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Shipment has QUEUED status', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('QUEUED');",
+									"    pm.expect(jsonData.shipmentId).to.eql('SHP-9002');",
+									"    pm.expect(jsonData.city).to.eql('Cusco');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8088/api/shipments/SHP-9002",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8088",
+							"path": ["api", "shipments", "SHP-9002"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Wait for services to be ready",
+					"setTimeout(() => {}, 1000);"
+				]
+			}
+		}
+	]
+}
